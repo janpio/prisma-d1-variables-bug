@@ -1,32 +1,54 @@
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
+import { PrismaClient } from '@prisma/client'
+import { PrismaD1 } from '@prisma/adapter-d1'
 
 export interface Env {
-	// Example binding to KV. Learn more at https://developers.cloudflare.com/workers/runtime-apis/kv/
-	// MY_KV_NAMESPACE: KVNamespace;
-	//
-	// Example binding to Durable Object. Learn more at https://developers.cloudflare.com/workers/runtime-apis/durable-objects/
-	// MY_DURABLE_OBJECT: DurableObjectNamespace;
-	//
-	// Example binding to R2. Learn more at https://developers.cloudflare.com/workers/runtime-apis/r2/
-	// MY_BUCKET: R2Bucket;
-	//
-	// Example binding to a Service. Learn more at https://developers.cloudflare.com/workers/runtime-apis/service-bindings/
-	// MY_SERVICE: Fetcher;
-	//
-	// Example binding to a Queue. Learn more at https://developers.cloudflare.com/queues/javascript-apis/
-	// MY_QUEUE: Queue;
+	DB: D1Database
 }
 
 export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-		return new Response('Hello World!');
+		const adapter = new PrismaD1(env.DB)
+		const prisma = new PrismaClient({ adapter })
+
+		let users = await loadUsers(prisma)
+		if (!users.length) {
+			await createUsers(prisma);
+			users = await loadUsers(prisma);
+		}
+		const result = JSON.stringify(users)
+		return new Response(result);
 	},
 };
+
+async function loadUsers(prisma: PrismaClient) {
+	return await prisma.user.findMany({
+		include: {
+			posts: true,
+		},
+	});
+}
+
+async function createUsers(prisma: PrismaClient) {
+	for (let i = 0; i < 250; i++) {
+		await prisma.user.create({
+			data: {
+				email: `user${i}@example.com`,
+				name: `User ${i}`,
+				posts: {
+					createMany: {
+						data: [
+							{
+								title: `Post ${i}`,
+								content: `This is the content of post ${i} by User ${i}`,
+							},
+							{
+								title: `Post ${i}b`,
+								content: `This is the content of the second post ${i}b by User ${i}`,
+							},
+						],
+					},
+				},
+			},
+		});
+	}
+}
