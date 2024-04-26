@@ -8,13 +8,31 @@ export interface Env {
 export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		const adapter = new PrismaD1(env.DB)
-		const prisma = new PrismaClient({ adapter })
+		const prisma = new PrismaClient({ adapter, log: ['query', 'info', 'warn', 'error'], })
 
+		/*
 		let users = await loadUsers(prisma)
 		if (!users.length) {
 			await createUsers(prisma);
 			users = await loadUsers(prisma);
 		}
+		*/
+
+		const posts = await createPosts(prisma);
+		
+		const users = await prisma.user.create({
+			data: {
+				name: "Foo",
+				email: "foo@bar.org",
+				posts: {
+					connect: posts.map((post) => ({ id: post.id })),
+				},
+			},
+			include: {
+				posts: true
+			}
+		});
+
 		const result = JSON.stringify(users)
 		return new Response(result);
 	},
@@ -51,4 +69,19 @@ async function createUsers(prisma: PrismaClient) {
 			},
 		});
 	}
+}
+
+async function createPosts(prisma: PrismaClient) {
+	const posts = []
+	for (let i = 0; i < 250; i++) {
+		posts.push(await prisma.post.create({
+			data: 
+				{
+					title: `Post ${i}`,
+					content: `This is the content of post ${i} by User ${i}`,
+				},
+
+		}))
+	}
+	return posts
 }

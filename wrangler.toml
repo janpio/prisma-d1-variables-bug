@@ -4,6 +4,9 @@ compatibility_date = "2024-04-04"
 compatibility_flags = ["nodejs_compat"]
 
 [[d1_databases]]
-binding = "DB"
+binding = "DB" # i.e. available in your Worker on env.DB
 database_name = "prisma-demo-db"
-database_id = "7c57d4f2-a5b3-4024-8899-74f9e429ff59"
+database_id = "3d5b622c-b5d3-45ea-a3fb-574324adeeee"
+
+[vars]
+QUERY_BATCH_SIZE = 100
